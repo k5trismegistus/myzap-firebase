@@ -18,5 +18,13 @@ service cloud.firestore {
     match /tasks/{task} {
       allow read, write: if true
     }
+
+    match /personalPlaces/{personalPlace} {
+      allow read, write: if true
+    }
+
+    match /users/{user} {
+      allow read, write: if true
+    }
   }
 }
