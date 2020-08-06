@@ -44,25 +44,38 @@ const onTaskDataCreated = functions.firestore.document('users/{userId}/tasks/{ta
 
       return situation.update({referenceCount: admin.firestore.FieldValue.increment(1) })
         .catch((err) => logger.error(`Error on incrementing reference count: ${ref.path}`))
-        .then(() => { logger.info(`Success on updating reference count: ${ref.path}`) })
+        .then(() => { logger.info(`Success on incrementing reference count: ${ref.path}`) })
     })
 
   return Promise.all(promises)
 })
 
 const onTaskDataChanged = functions.firestore.document('users/{userId}/tasks/{taskId}').onUpdate((change, context) => {
-  // const before = change.before.data()!
+  const before = change.before.data()
   const after = change.after.data()
   const index = client.initIndex('tasks')
 
-  if (after.completion) {
+  if (!before.completion && after.completion) {
     index.partialUpdateObject({
       objectID: context.params.taskId,
       completed: true,
-    }).then((task) => { return task }).catch((err) => { console.error(err) })
-  }
+    }).catch((err) => { logger.error(`Error on updating task: ${change.after.ref.path}`) })
+      .then(() => { logger.info(`Success on updating task: ${change.after.ref.path}`) })
 
-  return
+      // Increment reference counter of situation
+    const promises = after.situationRefs
+      .map((ref: admin.firestore.DocumentReference) => {
+        const situation = db.doc(ref.path)
+
+        return situation.update({referenceCount: admin.firestore.FieldValue.increment(-1) })
+          .catch((err) => logger.error(`Error on incrementing reference count: ${ref.path}`))
+          .then(() => { logger.info(`Success on incrementing reference count: ${ref.path}`) })
+        })
+
+      return Promise.all(promises)
+    }
+
+    return
 })
 
 export {
